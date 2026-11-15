@@ -50,6 +50,11 @@
     <control>keyboard</control>
   </supports>
   <releases>
+    <release version="0.17.102" date="2026-11-16">
+      <description>
+        <p>Jam invite links open Spotifast and join on Windows.</p>
+      </description>
+    </release>
     <release version="0.17.101" date="2026-11-15">
       <description>
         <p>Jams: listen together through a jam server, everyone on their own account, with one shared queue and the same controls for all.</p>
