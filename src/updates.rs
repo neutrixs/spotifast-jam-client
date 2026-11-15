@@ -22,6 +22,8 @@ pub const CONFIG: UpdateConfig = UpdateConfig {
         executable_names: &["Spotifast"],
         legacy_bundle_names: &[],
     },
+    // This fork, with jams, updates from its own releases and trusts only
+    // its own key: an update from upstream would take the jams away.
     // Releases publish an Ed25519 signature for checksums.txt. Require it
     // before downloading an update, using the release workflow's public key.
     publisher_key: Some(include_str!("../assets/update-public-key.hex")),
@@ -30,7 +32,7 @@ pub const CONFIG: UpdateConfig = UpdateConfig {
     // next one.
     appimage: true,
     ..UpdateConfig::new(
-        "crmne/spotifast",
+        "neutrixs/spotifast-jam-client",
         "Spotifast",
         "spotifast",
         env!("CARGO_PKG_VERSION"),
