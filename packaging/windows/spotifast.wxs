@@ -190,6 +190,17 @@
           <RegistryValue Key="shell\open\command" Type="string" Value='"[#SpotifastExe]" "%1"'
             KeyPath="yes" />
         </RegistryKey>
+        <!--
+          Jam invites (spotifast-jam://join?…), which a jam server's invite
+          page opens. Only Spotifast answers this scheme, so uninstalling
+          removes it.
+        -->
+        <RegistryKey Root="HKCU" Key="Software\Classes\spotifast-jam" ForceDeleteOnUninstall="yes">
+          <RegistryValue Type="string" Value="URL:Spotifast jam invite" />
+          <RegistryValue Name="URL Protocol" Type="string" Value="" />
+          <RegistryValue Key="DefaultIcon" Type="string" Value='"[#SpotifastExe]",0' />
+          <RegistryValue Key="shell\open\command" Type="string" Value='"[#SpotifastExe]" "%1"' />
+        </RegistryKey>
         <!-- Settings > Apps > Default apps lists Spotifast for spotify: links. -->
         <RegistryKey Root="HKCU" Key="Software\$(Identity)\Capabilities" ForceDeleteOnUninstall="yes">
           <RegistryValue Name="ApplicationName" Type="string" Value="$(Identity)" />

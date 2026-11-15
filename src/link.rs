@@ -91,6 +91,17 @@ pub fn parse(text: &str) -> Option<String> {
     Some(format!("spotify:{kind}:{id}"))
 }
 
+/// A link the app accepts from outside: a Spotify link as [`parse`] makes
+/// it, or a jam invite naming its server, as the `spotifast-jam:` link
+/// [`crate::jam::app_link`] makes. A bare jam code is not a link: it names
+/// no server.
+pub fn parse_external(text: &str) -> Option<String> {
+    parse(text).or_else(|| {
+        let invite = crate::jam::parse_invite(text)?;
+        Some(crate::jam::app_link(&invite.server?, &invite.code))
+    })
+}
+
 /// Decodes a search link once. A path's `+` is literal, not a form-encoded
 /// space. Canonical links encode the whole query so delimiters and Unicode
 /// survive command-line, D-Bus, Apple Event and line-based socket delivery.
@@ -265,6 +276,21 @@ mod tests {
         }
         let long = format!("spotify:track:{}", "x".repeat(65));
         assert_eq!(parse(&long), None);
+    }
+
+    #[test]
+    fn jam_invites_are_links_too_but_bare_codes_are_not() {
+        let link = "spotifast-jam://join?server=https%3A%2F%2Fjam.example.com&session=ABC234";
+        assert_eq!(parse_external(link).as_deref(), Some(link));
+        assert_eq!(
+            parse_external("https://jam.example.com/jam/abc234").as_deref(),
+            Some(link)
+        );
+        assert_eq!(parse_external("ABC234"), None);
+        assert_eq!(
+            parse_external("https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC").as_deref(),
+            Some("spotify:track:4uLU6hMCjMI75M1A2tKUQC")
+        );
     }
 
     #[test]

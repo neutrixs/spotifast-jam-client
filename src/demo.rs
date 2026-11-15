@@ -5586,8 +5586,12 @@ mod tests {
         let popup = egui::AreaState::load(&ctx, egui::Id::new("devices-popup"))
             .unwrap()
             .rect();
+        // The Jam section below the list keeps its own height.
+        let jam = ctx
+            .data(|data| data.get_temp::<f32>(egui::Id::new(crate::ui::jam::SECTION_HEIGHT_ID)))
+            .expect("the Jam section was drawn");
         assert!(
-            popup.height() < 160.0,
+            popup.height() < 160.0 + jam,
             "a list with only this computer should shrink to fit: {popup:?}"
         );
         app.backend.shutdown();

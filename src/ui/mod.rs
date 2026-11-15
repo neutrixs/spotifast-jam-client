@@ -8,6 +8,7 @@ pub(crate) mod devices;
 mod dialogs;
 pub(crate) mod friends;
 pub mod home;
+pub mod jam;
 mod keys;
 pub mod library;
 pub mod login;

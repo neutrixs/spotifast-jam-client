@@ -342,7 +342,7 @@ fn parse(line: &str) -> Option<Request> {
                 query: search_text(query)?,
             }
         }
-        ("open-link", Some(link)) => ControlCommand::OpenLink(crate::link::parse(link)?),
+        ("open-link", Some(link)) => ControlCommand::OpenLink(crate::link::parse_external(link)?),
         ("transfer", Some(id)) => ControlCommand::Transfer(device_id(id)?),
         ("nowplaying", None) => return Some(Request::NowPlaying),
         ("devices", None) => return Some(Request::Devices),

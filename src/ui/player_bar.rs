@@ -1059,6 +1059,8 @@ fn extras(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, transport_
     if devices.clicked() {
         app.actions.push(Action::ToggleDevicesPopup);
     }
+    // Drawn right to left: the jam's status sits left of the devices button.
+    super::jam::player_bar_status(app, ui);
     let queue_open = app.show_queue_panel || matches!(app.page(), Page::Queue);
     let queue_button = theme::icon_button(
         ui,

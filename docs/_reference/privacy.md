@@ -67,6 +67,13 @@ Spotifast connects only to the services below.
   sent.
 - **Your local network.** Spotifast looks for Spotify Connect speakers over
   mDNS and talks to the ones you choose.
+- **A jam server you choose.** Only while you are in a [jam](/jams/). The
+  server you start on, or the one an invite link names, receives
+  your Spotify display name, what you play (song, artists, cover address,
+  position and the playlist or album it plays from) when you host, and the
+  songs you add and the controls you use. Whoever runs that server can see
+  them, and so can everyone in the jam. Nothing is sent to it before you
+  start or join a jam, and nothing after you leave.
 
 Links you open from the app, such as the Winamp Skin Museum or this website,
 open in your browser.

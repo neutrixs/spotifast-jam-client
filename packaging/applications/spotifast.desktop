@@ -11,4 +11,4 @@ Keywords=spotify;music;player;streaming;spotifast;
 Icon=spotifast
 StartupNotify=true
 StartupWMClass=spotifast
-MimeType=x-scheme-handler/spotify;
+MimeType=x-scheme-handler/spotify;x-scheme-handler/spotifast-jam;
