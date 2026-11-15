@@ -532,15 +532,29 @@ pub fn normalize_server(text: &str) -> Option<String> {
     Some(format!("{scheme}://{rest}"))
 }
 
+/// What follows `spotifast-jam:` in `text`, in any case.
+fn strip_scheme(text: &str) -> Option<&str> {
+    let (scheme, rest) = text.split_once(':')?;
+    scheme.eq_ignore_ascii_case(SCHEME).then_some(rest)
+}
+
 /// An invite in any shape it travels in: the app link an invite page
 /// opens, the invite page's own address, or the bare code.
 pub fn parse_invite(text: &str) -> Option<Invite> {
     let text = text.trim();
-    if let Some(rest) = text.strip_prefix(&format!("{SCHEME}://")) {
-        let query = rest.strip_prefix("join")?.strip_prefix('?')?;
+    if let Some(rest) = strip_scheme(text) {
+        // Windows hands a link over tidied: `join/?…` rather than `join?…`,
+        // sometimes a slash at the very end too. Take every such shape.
+        let rest = rest.trim_start_matches('/');
+        let rest = &rest[..rest.find('#').unwrap_or(rest.len())];
+        let (verb, query) = rest.split_once('?')?;
+        if !verb.trim_end_matches('/').eq_ignore_ascii_case("join") {
+            return None;
+        }
+        let query = query.trim_end_matches('/');
         let mut server = None;
         let mut code = None;
-        for pair in query.split('&') {
+        for pair in query.split('&').filter(|pair| !pair.is_empty()) {
             let (key, value) = pair.split_once('=')?;
             let value = percent_encoding::percent_decode_str(value)
                 .decode_utf8()
@@ -624,6 +638,30 @@ mod tests {
                 server: None,
                 code: "ABC234".into()
             })
+        );
+    }
+
+    /// Windows passes a link on tidied, and browsers vary: every shape
+    /// still joins the same jam.
+    #[test]
+    fn app_links_survive_the_way_windows_and_browsers_hand_them_over() {
+        let expected = Some(Invite {
+            server: Some("https://jam.example.com".into()),
+            code: "ABC234".into(),
+        });
+        for text in [
+            "spotifast-jam://join/?server=https%3A%2F%2Fjam.example.com&session=ABC234",
+            "spotifast-jam://join?server=https%3A%2F%2Fjam.example.com&session=ABC234/",
+            "spotifast-jam://join/?server=https%3A%2F%2Fjam.example.com&session=ABC234/",
+            "SPOTIFAST-JAM://Join/?server=https%3A%2F%2Fjam.example.com&session=ABC234",
+            "spotifast-jam:join?server=https%3A%2F%2Fjam.example.com&session=ABC234",
+            "spotifast-jam://join?server=https%3A%2F%2Fjam.example.com&&session=ABC234#x",
+        ] {
+            assert_eq!(parse_invite(text), expected, "{text}");
+        }
+        assert_eq!(
+            parse_invite("spotifast-jam://leave/?server=https%3A%2F%2Fa&session=ABC234"),
+            None
         );
     }
 
