@@ -6,6 +6,10 @@ name: Release
 # the fork's update key so installed copies update to it. Run it by hand
 # from the Actions tab ("Run workflow") to build the same downloads without
 # releasing anything: they are attached to the run as one download.
+#
+# A tag on a commit that a run by hand already built, and whose downloads
+# have not expired, publishes those very downloads instead of building
+# again: what was tried is what is released.
 
 on:
   push:
@@ -14,6 +18,8 @@ on:
 
 permissions:
   contents: write
+  # Reading a run by hand's downloads, to release them.
+  actions: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      # The run by hand whose downloads a tag releases, if there is one.
+      reuse: ${{ steps.reuse.outputs.run }}
     steps:
       - uses: actions/checkout@v7
       # Downloads are named after the tag, but the binary reports the crate's
@@ -37,10 +45,28 @@ jobs:
             exit 1
           fi
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      # Only a build of this very commit: the tag says what code it is.
+      - id: reuse
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT: spotifast-${{ steps.tag.outputs.tag }}-test-build
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+            --event workflow_dispatch --commit "$GITHUB_SHA" --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run/artifacts" \
+              --jq ".artifacts[] | select(.name == \"$ARTIFACT\" and (.expired | not)) | .id" | grep -q .; then
+            echo "Releasing the downloads of run $run, built from $GITHUB_SHA"
+            echo "run=$run" >> "$GITHUB_OUTPUT"
+          else
+            echo "No unexpired build of $GITHUB_SHA by hand: building"
+          fi
 
   build:
     name: build (${{ matrix.target }})
     needs: version
+    if: needs.version.outputs.reuse == ''
     runs-on: ${{ matrix.os }}
     env:
       CMAKE_GENERATOR: Ninja
@@ -234,6 +260,11 @@ jobs:
   publish:
     name: ${{ github.ref_type == 'tag' && 'GitHub release' || 'Downloads' }}
     needs: [version, build, windows]
+    # Built here, or built before by hand and reused.
+    if: >-
+      !cancelled() && needs.version.result == 'success' &&
+      (needs.version.outputs.reuse != '' ||
+       (needs.build.result == 'success' && needs.windows.result == 'success'))
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.version.outputs.tag }}
@@ -243,14 +274,26 @@ jobs:
           persist-credentials: false
       # The packages only: the exe-* artifacts are the windows job's input.
       - uses: actions/download-artifact@v7
+        if: needs.version.outputs.reuse == ''
         with:
           path: dist
           pattern: dist-*
           merge-multiple: true
       - name: Source archive
+        if: needs.version.outputs.reuse == ''
         run: git archive --format=tar.gz --prefix="spotifast-${TAG}/" -o "dist/spotifast-${TAG}-source.tar.gz" HEAD
       - name: Public filenames and checksums
+        if: needs.version.outputs.reuse == ''
         run: python3 packaging/release-names.py dist "$TAG"
+      # Or everything, checksums and source included, as the run by hand
+      # made it; the checksum check below confirms every file arrived whole.
+      - uses: actions/download-artifact@v7
+        if: needs.version.outputs.reuse != ''
+        with:
+          name: spotifast-${{ needs.version.outputs.tag }}-test-build
+          path: dist
+          run-id: ${{ needs.version.outputs.reuse }}
+          github-token: ${{ github.token }}
 
       # Installed copies take an update only with checksums.txt.sig: a raw
       # Ed25519 signature over checksums.txt that fastframe-update checks
