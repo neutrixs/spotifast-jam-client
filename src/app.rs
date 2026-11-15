@@ -505,6 +505,9 @@ pub struct App {
     pub(crate) soloist_retry_at: Option<Instant>,
     soloist_retries: usize,
     soloist_bound_at: Option<Instant>,
+    /// When Soloist was last restarted because Spotify no longer knew its
+    /// device.
+    soloist_reconnected_at: Option<Instant>,
     /// Music was playing on Soloist when it stopped.
     soloist_resume: bool,
     /// Setup was chosen in this run, not resumed from `session.json`.
@@ -1051,6 +1054,9 @@ const SOLOIST_RETRIES: [Duration; 3] = [
 ];
 /// A player that ran this long starts its retries from the first again.
 const SOLOIST_STABLE: Duration = Duration::from_secs(60);
+/// Soloist is restarted for a lost Spotify connection at most this often,
+/// so an outage that outlasts a restart cannot loop one.
+const SOLOIST_RECONNECT_GAP: Duration = Duration::from_secs(60);
 /// How long to wait before each new try at lyrics that failed.
 const LYRICS_RETRIES: [Duration; 4] = [
     Duration::from_secs(5),
@@ -1302,6 +1308,7 @@ impl App {
             soloist_retry_at: None,
             soloist_retries: 0,
             soloist_bound_at: None,
+            soloist_reconnected_at: None,
             soloist_resume: false,
             soloist_setup_chosen: false,
             soloist_setup_optional: false,
@@ -3324,6 +3331,27 @@ impl App {
         if due.is_none() {
             self.soloist_give_up();
         }
+    }
+
+    /// Restarts Soloist when Spotify has lost its device, and picks the song
+    /// up again once it is back if `resume`. False when it was restarted
+    /// for this too recently to try again.
+    fn reconnect_soloist(&mut self, resume: bool) -> bool {
+        if self
+            .soloist_reconnected_at
+            .is_some_and(|at| at.elapsed() < SOLOIST_RECONNECT_GAP)
+        {
+            return false;
+        }
+        log::warn!("Spotify no longer knows Soloist's device; restarting Soloist");
+        self.soloist_reconnected_at = Some(Instant::now());
+        self.soloist_resume |= resume;
+        self.toast(gettext(
+            self.locale,
+            "Soloist lost its connection to Spotify. Reconnecting…",
+        ));
+        self.actions.push(Action::RetrySoloist);
+        true
     }
 
     /// Nothing will bring the player back unasked: a song held for it would
@@ -9851,6 +9879,20 @@ impl App {
                             matches!(intent.confirmation, TrackConfirmation::Remote { .. })
                         }) {
                             self.intent_track = None;
+                        }
+                        // Spotify no longer knows this computer's Soloist:
+                        // after a dropped connection its player can stay
+                        // running but signed out of Connect, and every
+                        // command after would fail the same way.
+                        if error.status() == Some(404)
+                            && self.targets_own_soloist()
+                            && self.reconnect_soloist(matches!(
+                                action,
+                                RemoteAction::Play | RemoteAction::Next | RemoteAction::Previous
+                            ))
+                        {
+                            self.poll_remote_soon();
+                            return;
                         }
                         let hint = if error.status() == Some(404) {
                             format!(
@@ -24016,6 +24058,38 @@ mod tests {
             assert_eq!(app.selected_device.is_some(), id == "speaker");
             assert_eq!(app.remote_poll_seq, seq + u64::from(id == "soloist"));
         }
+    }
+
+    /// After a dropped connection Soloist can keep running while Spotify no
+    /// longer knows its device: every command then answers 404. The first
+    /// such answer restarts Soloist and carries the song on; a second soon
+    /// after only reports the error, so an outage cannot loop restarts.
+    #[test]
+    fn a_soloist_spotify_forgot_is_restarted_once_and_the_song_resumed() {
+        let mut app = test_app("soloist-forgotten");
+        app.backend.set_offline(true);
+        app.settings.soloist_enabled = true;
+        app.soloist_status = crate::soloist::Status::Ready {
+            name: "Spotifast".into(),
+            version: "1".into(),
+            expires: u64::MAX,
+        };
+        app.soloist_device_id = Some("soloist".into());
+        app.selected_device = Some("soloist".into());
+        assert!(app.targets_own_soloist());
+        let forgotten = || ApiResponse::Remote {
+            action: RemoteAction::Play,
+            result: Err(crate::api::ApiError::Status {
+                status: 404,
+                message: "Device not found".into(),
+            }),
+        };
+        app.handle_api(forgotten());
+        assert!(matches!(app.actions.as_slice(), [Action::RetrySoloist]));
+        assert!(app.soloist_resume);
+        app.actions.clear();
+        app.handle_api(forgotten());
+        assert!(app.actions.is_empty());
     }
 
     fn test_app(name: &str) -> App {
