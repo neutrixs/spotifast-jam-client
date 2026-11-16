@@ -68,7 +68,7 @@ mod mac_impl {
     );
 
     fn deliver(text: &str) {
-        let Some(uri) = crate::link::parse_external(text) else {
+        let Some(uri) = crate::link::parse(text) else {
             log::warn!("not a Spotify link: {text}");
             return;
         };

@@ -33,16 +33,6 @@
             </array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
         </dict>
-        <!-- Jam invites (spotifast-jam://join?…), which a jam server's
-             invite page opens. Only Spotifast answers this scheme. -->
-        <dict>
-            <key>CFBundleURLName</key><string>Spotifast jam invite</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>spotifast-jam</string>
-            </array>
-            <key>CFBundleTypeRole</key><string>Viewer</string>
-        </dict>
     </array>
     <key>NSHumanReadableCopyright</key><string>© 2026 Carmine Paolino. MIT License. Not affiliated with Spotify AB.</string>
 </dict>

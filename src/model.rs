@@ -1195,24 +1195,6 @@ pub enum Action {
         label: String,
     },
     ToggleSaved(String),
-    /// Start a jam on the server in Settings, as its host.
-    StartJam,
-    /// Join a jam from an invite link or code (see `crate::jam::parse_invite`).
-    JoinJam(String),
-    /// Leave the jam, which ends it for everyone when this computer hosts it.
-    LeaveJam,
-    /// Take a song out of the jam's queue, by its id there. Anyone in the
-    /// jam may take out any song.
-    RemoveFromJam(String),
-    /// Move a song in the jam's queue to an index.
-    MoveInJam {
-        id: String,
-        to: usize,
-    },
-    /// Play a song from the jam's queue now, skipping those before it.
-    PlayFromJam(String),
-    /// Empty the jam's queue.
-    ClearJam,
     /// Queue several songs in order and show one notification.
     QueueMany {
         songs: Vec<(String, String)>,

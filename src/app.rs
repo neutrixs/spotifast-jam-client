@@ -864,18 +864,6 @@ pub struct App {
     pub resume_queue: Vec<String>,
     /// Manually queued songs from this session, oldest first.
     pub manual_queue: Vec<String>,
-    /// The jam this computer is in, once one is being started or joined.
-    pub jam: Option<jam::Jam>,
-    /// Why the last attempt to start or join a jam failed.
-    pub jam_problem: Option<String>,
-    /// The invite link typed into the devices popup's Join field.
-    pub jam_join_text: String,
-    /// The server address typed to start a jam, from the last one used.
-    pub jam_server_text: String,
-    /// The devices popup is asking which server to start a jam on.
-    pub jam_starting: bool,
-    /// Wakes the app when the jam server answers.
-    jam_waker: Waker,
     /// Queue additions shown before Spotify confirms them, with request time.
     pending_queue_adds: Vec<PendingQueueAdd>,
     pending_album_queues: HashMap<u64, PendingAlbumQueue>,
@@ -1520,12 +1508,6 @@ impl App {
             resume_load: None,
             resume_queue: session.last_added_queue.clone(),
             manual_queue: Vec::new(),
-            jam: None,
-            jam_problem: None,
-            jam_join_text: String::new(),
-            jam_server_text: String::new(),
-            jam_starting: false,
-            jam_waker: waker.clone(),
             pending_queue_adds: Vec::new(),
             pending_album_queues: HashMap::new(),
             pending_queue_batches: HashMap::new(),
@@ -1561,8 +1543,6 @@ impl App {
             player_bar_analyser: crate::vis::WideAnalyser::default(),
             pixels_per_point: 1.0,
         };
-        // Starting a jam offers the server the last one started on.
-        app.jam_server_text = app.settings.jam_server.clone();
         app.local.volume = app.settings.volume;
         if let Some(folder) = app.settings.local_files_folder() {
             app.backend.send(Command::ScanLocalFiles(folder));
@@ -12559,11 +12539,6 @@ impl App {
     /// Apply one queued UI action after drawing, updating optimistic local state
     /// and scheduling any backend work or preference persistence it requires.
     pub(crate) fn apply(&mut self, action: Action, ctx: &egui::Context) {
-        // In a jam, queued songs go to the jam and a listener's controls to
-        // its host, before anything here acts on them.
-        let Some(action) = self.jam_intercept(action) else {
-            return;
-        };
         // Covers buttons, row double-clicks, keyboard/media shortcuts and IPC
         // before any optimistic state or queued request can change.
         let held = self.soloist_recovering()
@@ -12658,10 +12633,6 @@ impl App {
                 if let Some(page) = Page::from_uri(&uri) {
                     self.open(page);
                 }
-            }
-            Action::OpenLink(uri) if uri.starts_with("spotifast-jam:") => {
-                self.join_jam(&uri);
-                self.actions.push(Action::ShowWindow);
             }
             Action::OpenLink(uri) => {
                 // The window first: a link is the user asking for the
@@ -12922,13 +12893,6 @@ impl App {
             }
             Action::SetRepeat(mode) => self.set_repeat(mode),
             Action::AddToQueue { uri, label } => self.add_to_queue(uri, label),
-            Action::StartJam => self.start_jam(),
-            Action::JoinJam(text) => self.join_jam(&text),
-            Action::LeaveJam => self.leave_jam(true),
-            Action::RemoveFromJam(id) => self.remove_from_jam(vec![id]),
-            Action::MoveInJam { id, to } => self.move_in_jam(id, to),
-            Action::PlayFromJam(id) => self.play_from_jam(id),
-            Action::ClearJam => self.clear_jam(),
             Action::QueueMany { songs } => self.queue_many(songs),
             Action::PlayNext { items } => {
                 // Unlike a positional drop, Play next must never fall back
@@ -14582,7 +14546,6 @@ impl App {
         }
         self.handle_control_commands();
         self.handle_events();
-        self.poll_jam(ctx);
         self.open_pending_link();
         self.handle_media_commands();
         self.sync_power(ctx);
@@ -15676,7 +15639,6 @@ fn cover_error(locale: Locale, error: &crate::api::client::ApiError) -> String {
     }
 }
 
-pub mod jam;
 mod radio;
 
 #[cfg(test)]
@@ -21978,7 +21940,7 @@ mod tests {
 
     /// Local playback with three songs under Playing next and one context
     /// row after them, for the repeated-move tests (#598).
-    pub(super) fn app_with_local_manual_queue() -> App {
+    fn app_with_local_manual_queue() -> App {
         let mut app = headless_app();
         app.auth = AuthStatus::Connected {
             username: "alice".into(),

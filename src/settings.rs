@@ -443,11 +443,6 @@ pub struct Settings {
     pub lyrics_milkdrop: bool,
     /// The MilkDrop window's size in logical points, when not full-screen.
     pub milkdrop_size: [f32; 2],
-    /// The jam server a jam was last started on, offered again the next
-    /// time. See `crate::jam::normalize_server`. (A `jam_enabled` switch in
-    /// files from earlier builds of the fork is ignored.)
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub jam_server: String,
     /// Which proxy to use. Older files without this field stay on `system`.
     #[serde(default, skip_serializing_if = "proxy_mode_is_system")]
     pub proxy_mode: ProxyMode,
@@ -576,7 +571,6 @@ impl Default for Settings {
             milkdrop_panel_height: 232,
             lyrics_milkdrop: false,
             milkdrop_size: crate::milkdrop::DEFAULT_SIZE,
-            jam_server: String::new(),
             proxy_mode: ProxyMode::System,
             proxy: String::new(),
             proxy_host: String::new(),

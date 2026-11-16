@@ -63,7 +63,6 @@ class LauncherInstallTest(unittest.TestCase):
         self.assertEqual(entry["StartupWMClass"], window_class)
         self.assertEqual(entry["Exec"], "spotifast %u")
         self.assertIn("x-scheme-handler/spotify;", entry["MimeType"])
-        self.assertIn("x-scheme-handler/spotifast-jam;", entry["MimeType"])
         icons = list((prefix / "share/icons/hicolor/scalable/apps").glob("*.svg"))
         self.assertEqual([p.name for p in icons], [icon + ".svg"])
         self.assertEqual(icons[0].read_bytes(), (ROOT / "packaging/icons/spotifast.svg").read_bytes())

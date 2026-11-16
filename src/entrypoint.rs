@@ -393,7 +393,7 @@ pub(crate) fn run() -> eframe::Result<()> {
     let link = cli
         .link
         .as_deref()
-        .map(|text| match spotifast::link::parse_external(text) {
+        .map(|text| match spotifast::link::parse(text) {
             Some(uri) => uri,
             None => {
                 eprintln!("not a Spotify link: {text}");

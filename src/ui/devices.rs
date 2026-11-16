@@ -496,12 +496,7 @@ pub fn popup(app: &mut App, ctx: &egui::Context) {
                     active_id.as_deref(),
                 );
 
-                // The Jam section below the list takes its own room.
-                let jam = ctx
-                    .data(|data| data.get_temp::<f32>(egui::Id::new(super::jam::SECTION_HEIGHT_ID)))
-                    .unwrap_or(super::jam::SECTION_HEIGHT_GUESS);
-                let max_height =
-                    (position.y - ctx.content_rect().top() - 62.0 - jam).clamp(52.0, 416.0);
+                let max_height = (position.y - ctx.content_rect().top() - 62.0).clamp(52.0, 416.0);
                 crate::autoscroll::show(
                     ui,
                     egui::ScrollArea::vertical()
@@ -624,7 +619,6 @@ pub fn popup(app: &mut App, ctx: &egui::Context) {
                 if app.local_ready && !hide_builtin {
                     output_picker(app, ui);
                 }
-                super::jam::devices_section(app, ui);
             });
         });
     let popup_rect = area.response.rect;
