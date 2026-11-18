@@ -13790,6 +13790,10 @@ impl App {
                     enabled: false,
                     key: None,
                 });
+                // It is stopped now. Still marked ready, it would make the
+                // start below think there was nothing to do, and Soloist
+                // would stay stopped until the app restarted.
+                self.soloist_status = crate::soloist::Status::Off;
                 self.apply(Action::SetSoloist(true), ctx);
             }
             Action::RestartEngine => {
@@ -24048,6 +24052,17 @@ mod tests {
         };
         app.handle_api(forgotten());
         assert!(matches!(app.actions.as_slice(), [Action::RetrySoloist]));
+        assert!(app.soloist_resume);
+        // The restart really starts Soloist again, not only stops it.
+        let ctx = egui::Context::default();
+        for action in std::mem::take(&mut app.actions) {
+            app.apply(action, &ctx);
+        }
+        assert!(
+            matches!(app.soloist_status, crate::soloist::Status::Starting),
+            "{:?}",
+            app.soloist_status
+        );
         assert!(app.soloist_resume);
         app.actions.clear();
         app.handle_api(forgotten());
